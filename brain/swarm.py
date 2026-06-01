@@ -176,14 +176,13 @@ class Agent:
 
 # Provider assignment per agent — best available provider for each specialty
 AGENT_PROVIDERS = {
-    # All free. Verified working as of 2026-06.
-    # Groq: llama-3.3-70b · gpt-oss-120b · qwen3-32b · llama-4-scout · llama-3.1-8b
-    # OpenRouter: gemma-4-31b · gemma-4-26b · gpt-oss-20b · glm-4.5-air
-    'CODER':     ['groq_qwen3',  'groq_llama4',  'groq',       'or_gpt20b',  'ollama'],
-    'TRAINER':   ['ollama',      'groq',         'or_gemma26b'],
-    'GUARDIAN':  ['groq_120b',   'groq',         'or_gemma31b','or_glm',     'ollama'],
-    'ORACLE':    ['groq_120b',   'or_gemma31b',  'groq',       'or_gpt20b',  'ollama'],
-    'ARCHITECT': ['groq_llama4', 'groq_120b',    'groq',       'or_gemma31b','ollama'],
+    # GPU-accelerated preferred when available (NVIDIA NIM, Cerebras, Together, SambaNova)
+    # Falls back to Groq (fast), then OpenRouter (free models), then Ollama (local)
+    'CODER':     ['cerebras',    'nvidia',   'groq_qwen3',  'groq_llama4', 'groq',     'or_gpt20b',  'ollama'],
+    'TRAINER':   ['ollama',      'groq',     'cerebras'],
+    'GUARDIAN':  ['nvidia',      'cerebras', 'groq_120b',   'groq',        'or_gemma31b', 'ollama'],
+    'ORACLE':    ['nvidia',      'together', 'sambanova',   'groq_120b',   'groq',     'or_gemma31b','ollama'],
+    'ARCHITECT': ['nvidia',      'cerebras', 'groq_llama4', 'groq_120b',   'groq',     'ollama'],
 }
 
 

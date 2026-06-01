@@ -20,6 +20,10 @@ DEFAULT_CONFIG = {
     "anthropic":    {"api_key": "", "model": "claude-haiku-4-5-20251001"},
     "groq":        {"api_key": "", "model": "llama-3.1-70b-versatile"},
     "openrouter":  {"api_key": "", "model": "meta-llama/llama-3.1-8b-instruct:free"},
+    "nvidia":      {"api_key": "", "model": "nvidia/llama-3.3-nemotron-super-49b-v1"},
+    "cerebras":    {"api_key": "", "model": "llama-3.3-70b"},
+    "together":    {"api_key": "", "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo"},
+    "sambanova":   {"api_key": "", "model": "Meta-Llama-3.3-70B-Instruct"},
 }
 
 
@@ -412,6 +416,161 @@ class OpenRouterVariantProvider(OpenRouterProvider):
         super().__init__(cfg)
         self.name = f"OR/{cfg.get('model','?').split('/')[-1][:20]}"
 
+
+
+class NvidiaNIMProvider(BaseProvider):
+    """NVIDIA NIM — H100 GPU inference. Free credits at build.nvidia.com.
+    Nemotron-70B, Nemotron-253B, Llama 3.3-70B and more. Key starts with nvapi-"""
+    name = 'NVIDIA'
+
+    def __init__(self, cfg):
+        self.api_key = cfg.get('api_key', '')
+        self.model   = cfg.get('model', 'nvidia/llama-3.3-nemotron-super-49b-v1')
+        self.base    = 'https://integrate.api.nvidia.com/v1'
+
+    def available(self):
+        return bool(self.api_key and self.api_key.startswith('nvapi-'))
+
+    def stream(self, prompt, system='', on_token=None):
+        headers = {'Authorization': f'Bearer {self.api_key}',
+                   'Content-Type': 'application/json'}
+        payload = {
+            'model': self.model, 'stream': True,
+            'messages': [
+                {'role': 'system', 'content': system},
+                {'role': 'user',   'content': prompt},
+            ]
+        }
+        try:
+            with requests.post(f'{self.base}/chat/completions',
+                               headers=headers, json=payload,
+                               stream=True, timeout=60) as r:
+                for line in r.iter_lines():
+                    if not line or b'[DONE]' in line: continue
+                    raw = line.decode().removeprefix('data: ')
+                    try:
+                        delta = json.loads(raw)['choices'][0]['delta']
+                        tok = delta.get('content', '')
+                        if tok and on_token: on_token(tok)
+                    except Exception: pass
+        except Exception as e:
+            if on_token: on_token(f'\n[NVIDIA error: {e}]')
+
+
+class CerebrasProvider(BaseProvider):
+    """Cerebras — fastest inference on the planet (CS-3 wafer chips).
+    Free tier at cloud.cerebras.ai. Llama 3.3-70B at 2000+ tokens/sec."""
+    name = 'Cerebras'
+
+    def __init__(self, cfg):
+        self.api_key = cfg.get('api_key', '')
+        self.model   = cfg.get('model', 'llama-3.3-70b')
+        self.base    = 'https://api.cerebras.ai/v1'
+
+    def available(self):
+        return bool(self.api_key and len(self.api_key) > 10)
+
+    def stream(self, prompt, system='', on_token=None):
+        headers = {'Authorization': f'Bearer {self.api_key}',
+                   'Content-Type': 'application/json'}
+        payload = {
+            'model': self.model, 'stream': True,
+            'messages': [
+                {'role': 'system', 'content': system},
+                {'role': 'user',   'content': prompt},
+            ]
+        }
+        try:
+            with requests.post(f'{self.base}/chat/completions',
+                               headers=headers, json=payload,
+                               stream=True, timeout=60) as r:
+                for line in r.iter_lines():
+                    if not line or b'[DONE]' in line: continue
+                    raw = line.decode().removeprefix('data: ')
+                    try:
+                        delta = json.loads(raw)['choices'][0]['delta']
+                        tok = delta.get('content', '')
+                        if tok and on_token: on_token(tok)
+                    except Exception: pass
+        except Exception as e:
+            if on_token: on_token(f'\n[Cerebras error: {e}]')
+
+
+class TogetherProvider(BaseProvider):
+    """Together AI — free $25 credits on signup. Llama 405B, Mixtral, etc."""
+    name = 'Together'
+
+    def __init__(self, cfg):
+        self.api_key = cfg.get('api_key', '')
+        self.model   = cfg.get('model', 'meta-llama/Llama-3.3-70B-Instruct-Turbo')
+        self.base    = 'https://api.together.xyz/v1'
+
+    def available(self):
+        return bool(self.api_key and len(self.api_key) > 10)
+
+    def stream(self, prompt, system='', on_token=None):
+        headers = {'Authorization': f'Bearer {self.api_key}',
+                   'Content-Type': 'application/json'}
+        payload = {
+            'model': self.model, 'stream': True,
+            'messages': [
+                {'role': 'system', 'content': system},
+                {'role': 'user',   'content': prompt},
+            ]
+        }
+        try:
+            with requests.post(f'{self.base}/chat/completions',
+                               headers=headers, json=payload,
+                               stream=True, timeout=60) as r:
+                for line in r.iter_lines():
+                    if not line or b'[DONE]' in line: continue
+                    raw = line.decode().removeprefix('data: ')
+                    try:
+                        delta = json.loads(raw)['choices'][0]['delta']
+                        tok = delta.get('content', '')
+                        if tok and on_token: on_token(tok)
+                    except Exception: pass
+        except Exception as e:
+            if on_token: on_token(f'\n[Together error: {e}]')
+
+
+class SambanovaProvider(BaseProvider):
+    """SambaNova Cloud — free tier, RDU chip inference. Fast 405B."""
+    name = 'SambaNova'
+
+    def __init__(self, cfg):
+        self.api_key = cfg.get('api_key', '')
+        self.model   = cfg.get('model', 'Meta-Llama-3.3-70B-Instruct')
+        self.base    = 'https://fast-api.snova.ai/v1'
+
+    def available(self):
+        return bool(self.api_key and len(self.api_key) > 10)
+
+    def stream(self, prompt, system='', on_token=None):
+        headers = {'Authorization': f'Bearer {self.api_key}',
+                   'Content-Type': 'application/json'}
+        payload = {
+            'model': self.model, 'stream': True,
+            'messages': [
+                {'role': 'system', 'content': system},
+                {'role': 'user',   'content': prompt},
+            ]
+        }
+        try:
+            with requests.post(f'{self.base}/chat/completions',
+                               headers=headers, json=payload,
+                               stream=True, timeout=60) as r:
+                for line in r.iter_lines():
+                    if not line or b'[DONE]' in line: continue
+                    raw = line.decode().removeprefix('data: ')
+                    try:
+                        delta = json.loads(raw)['choices'][0]['delta']
+                        tok = delta.get('content', '')
+                        if tok and on_token: on_token(tok)
+                    except Exception: pass
+        except Exception as e:
+            if on_token: on_token(f'\n[SambaNova error: {e}]')
+
 def build_providers():
     """Load config and instantiate all providers. Returns dict name→provider."""
     cfg = load_config()
@@ -433,6 +592,10 @@ def build_providers():
         'or_hermes405b':   OpenRouterVariantProvider(cfg.get('or_hermes405b', {})),
         'or_nemotron120b': OpenRouterVariantProvider(cfg.get('or_nemotron120b', {})),
         'or_kimi':         OpenRouterVariantProvider(cfg.get('or_kimi', {})),
+        'nvidia':          NvidiaNIMProvider(cfg.get('nvidia', {})),
+        'cerebras':        CerebrasProvider(cfg.get('cerebras', {})),
+        'together':        TogetherProvider(cfg.get('together', {})),
+        'sambanova':       SambanovaProvider(cfg.get('sambanova', {})),
     }
 
 
