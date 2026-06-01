@@ -109,3 +109,23 @@ class VisionWorker:
     def get_frame(self):
         with self._lock:
             return list(self.frame_art), self.faces, self.fps
+
+    def get_frame_b64(self, quality=75):
+        """Return latest raw camera frame as base64 JPEG for vision LLM."""
+        if not self.running:
+            return None
+        try:
+            import cv2, base64
+            cap = cv2.VideoCapture(self.device)
+            # Brief re-open: grab one clean frame
+            for _ in range(3): cap.read()
+            ret, frame = cap.read()
+            cap.release()
+            if not ret or frame is None:
+                return None
+            frame = cv2.resize(frame, (640, 480))
+            _, buf = cv2.imencode(".jpg", frame,
+                                  [cv2.IMWRITE_JPEG_QUALITY, quality])
+            return base64.b64encode(buf.tobytes()).decode("ascii")
+        except Exception:
+            return None

@@ -23,10 +23,11 @@ VISION_MODELS = [
 
 
 class VisionAI:
-    def __init__(self, providers=None, memory=None, obs_writer=None):
-        self.providers  = providers or {}
-        self.memory     = memory
-        self.obs_writer = obs_writer
+    def __init__(self, providers=None, memory=None, obs_writer=None, vision_worker=None):
+        self.providers      = providers or {}
+        self.memory         = memory
+        self.obs_writer     = obs_writer
+        self.vision_worker  = vision_worker  # VisionWorker already running
 
         self.last_frame  = None   # latest base64 JPEG
         self.last_desc   = ''     # latest text description
@@ -39,13 +40,15 @@ class VisionAI:
     # ── Frame capture ──────────────────────────────────────────────────────────
 
     def capture_frame(self, device=0, width=640, height=480, quality=75):
-        """Capture one frame from webcam, return as base64 JPEG string."""
+        """Get a frame — prefer VisionWorker buffer to avoid double-opening camera."""
+        # Use already-running VisionWorker if available
+        if self.vision_worker and self.vision_worker.running:
+            return self.vision_worker.get_frame_b64(quality)
+        # Otherwise open camera directly
         try:
             import cv2
             cap = cv2.VideoCapture(device)
-            # Warm up — first few frames are often dark
-            for _ in range(8):
-                cap.read()
+            for _ in range(8): cap.read()
             ret, frame = cap.read()
             cap.release()
             if not ret or frame is None:

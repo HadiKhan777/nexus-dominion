@@ -87,7 +87,8 @@ def main():
     from brain.obsidian_chat_log import ObsidianChatLogger
     from brain.vision_ai        import VisionAI
     chat_log  = ObsidianChatLogger()
-    vision_ai = VisionAI(providers=providers, memory=memory, obs_writer=obs_writer)
+    vision_ai = VisionAI(providers=providers, memory=memory, obs_writer=obs_writer,
+                        vision_worker=vision)
     brain     = Brain(rag, memory=memory, provider=chat_provider,
                       chat_log=chat_log, vision_ai=vision_ai)
     swarm       = AgentSwarm(rag, brain.ollama,
