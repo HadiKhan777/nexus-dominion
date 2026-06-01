@@ -87,15 +87,16 @@ def main():
     from brain.obsidian_chat_log import ObsidianChatLogger
     from brain.vision_ai        import VisionAI
     chat_log  = ObsidianChatLogger()
-    vision_ai = VisionAI(providers=providers, memory=memory, obs_writer=obs_writer,
-                        vision_worker=vision)
     brain     = Brain(rag, memory=memory, provider=chat_provider,
-                      chat_log=chat_log, vision_ai=vision_ai)
+                      chat_log=chat_log)
     swarm       = AgentSwarm(rag, brain.ollama,
                              providers=providers, obs_writer=obs_writer)
     voice       = VoiceEngine()
     vision      = VisionWorker(device=0, width=36, height=12)
     # Camera is OFF by default — user enables with /camera
+    vision_ai   = VisionAI(providers=providers, memory=memory, obs_writer=obs_writer,
+                           vision_worker=vision)
+    brain.vision_ai = vision_ai  # wire after brain created
     github      = GitHubFeed('HadiKhan777')
     file_watch  = FileWatcher()
     file_watch.start()
