@@ -48,6 +48,7 @@ class VisionWorker:
 
         self.status = 'live'
         self.running = True
+        self._last_b64 = None   # latest frame as base64 JPEG
 
         # Load face detector
         face_cascade = None
@@ -65,6 +66,14 @@ class VisionWorker:
             if not ret:
                 time.sleep(0.1)
                 continue
+
+            # Store raw frame for VisionAI (before resize)
+            try:
+                _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                import base64
+                self._last_b64 = base64.b64encode(buf.tobytes()).decode('ascii')
+            except Exception:
+                pass
 
             # Resize for ASCII
             small = cv2.resize(frame, (self.w, self.h))
@@ -111,21 +120,5 @@ class VisionWorker:
             return list(self.frame_art), self.faces, self.fps
 
     def get_frame_b64(self, quality=75):
-        """Return latest raw camera frame as base64 JPEG for vision LLM."""
-        if not self.running:
-            return None
-        try:
-            import cv2, base64
-            cap = cv2.VideoCapture(self.device)
-            # Brief re-open: grab one clean frame
-            for _ in range(3): cap.read()
-            ret, frame = cap.read()
-            cap.release()
-            if not ret or frame is None:
-                return None
-            frame = cv2.resize(frame, (640, 480))
-            _, buf = cv2.imencode(".jpg", frame,
-                                  [cv2.IMWRITE_JPEG_QUALITY, quality])
-            return base64.b64encode(buf.tobytes()).decode("ascii")
-        except Exception:
-            return None
+        """Return latest raw camera frame as base64 JPEG — uses stored frame, no double-open."""
+        return getattr(self, '_last_b64', None)

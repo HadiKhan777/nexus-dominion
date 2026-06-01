@@ -83,7 +83,7 @@ def main():
     providers   = build_providers()
     obs_writer  = ObsidianWriter()
     from brain.providers import best_available as _best
-    chat_provider = _best(providers, ['groq', 'openrouter', 'ollama'])
+    chat_provider = _best(providers, ['cerebras', 'groq', 'mistral', 'openrouter', 'ollama'])
     from brain.obsidian_chat_log import ObsidianChatLogger
     from brain.vision_ai        import VisionAI
     chat_log  = ObsidianChatLogger()
