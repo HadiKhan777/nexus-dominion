@@ -627,21 +627,28 @@ class NexusTerminalV2:
         return True
 
     def _history_prev(self):
+        # Scroll chat if input empty, else cycle history
+        if not self.input_buf.strip():
+            self.chat_scroll += 3
+            return
         if not self.cmd_history:
             return
         if self.hist_idx == len(self.cmd_history):
-            self.saved_buf = self.input_buf       # stash what was being typed
+            self.saved_buf = self.input_buf
         self.hist_idx = max(0, self.hist_idx - 1)
         self.input_buf = self.cmd_history[self.hist_idx]
 
     def _history_next(self):
+        if not self.input_buf.strip() and self.chat_scroll > 0:
+            self.chat_scroll = max(0, self.chat_scroll - 3)
+            return
         if not self.cmd_history:
             return
         if self.hist_idx >= len(self.cmd_history):
             return
         self.hist_idx += 1
         if self.hist_idx == len(self.cmd_history):
-            self.input_buf = self.saved_buf       # restore the in-progress line
+            self.input_buf = self.saved_buf
         else:
             self.input_buf = self.cmd_history[self.hist_idx]
 
@@ -926,14 +933,29 @@ class NexusTerminalV2:
                             log.write(f"ESC SEQ: {s!r}\n"); log.flush()
                         return False
 
-                    if seq.startswith('\x1b') and len(seq) > 1:
-                        if _handle_seq(seq): continue
-
-                    # Process char by char for normal input
-                    for key in seq:
-                        if not self.handle_key(key):
-                            self._running = False
-                            break
+                    # Split batch read into individual escape sequences + chars
+                    i = 0
+                    while i < len(seq) and self._running:
+                        if seq[i] == '\x1b' and i+1 < len(seq):
+                            # Consume one complete escape sequence
+                            j = i+1
+                            if j < len(seq) and seq[j] == '[':
+                                j += 1
+                                while j < len(seq) and seq[j] not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz~':
+                                    j += 1
+                                if j < len(seq): j += 1  # include terminator
+                            elif j < len(seq) and seq[j] in 'ABCDO':
+                                j += 1
+                            sub = seq[i:j]
+                            if not _handle_seq(sub):
+                                for k in sub:
+                                    if not self.handle_key(k):
+                                        self._running = False; break
+                            i = j
+                        else:
+                            if not self.handle_key(seq[i]):
+                                self._running = False; break
+                            i += 1
                 except KeyboardInterrupt:
                     break
                 except Exception as ex:

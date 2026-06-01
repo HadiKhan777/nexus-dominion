@@ -240,16 +240,50 @@ function buildGraph(data){
   document.getElementById('s-edges').textContent=data.edges.length;
 }
 
-// Fetch graph from API
+// Fallback nodes shown immediately (7 projects + Hadi) before API responds
+const FALLBACK = {nodes:[
+  {id:'hadi-khan',     type:'entity/person',    color:'#ff33aa'},
+  {id:'distkv',        type:'project',           color:'#c8ff00'},
+  {id:'neuralkit',     type:'project',           color:'#c8ff00'},
+  {id:'nanohttp',      type:'project',           color:'#c8ff00'},
+  {id:'gitlet',        type:'project',           color:'#c8ff00'},
+  {id:'tui',           type:'project',           color:'#c8ff00'},
+  {id:'kontainer',     type:'project',           color:'#c8ff00'},
+  {id:'pipecraft',     type:'project',           color:'#c8ff00'},
+  {id:'nexus',         type:'project',           color:'#c8ff00'},
+  {id:'Linux Namespaces', type:'concept',        color:'#aa33ff'},
+  {id:'WebSocket',     type:'concept',           color:'#aa33ff'},
+  {id:'BatchNorm',     type:'concept',           color:'#aa33ff'},
+  {id:'WAL Persistence', type:'concept',         color:'#aa33ff'},
+  {id:'Node.js',       type:'technology',        color:'#00ccff'},
+  {id:'Python',        type:'technology',        color:'#00ccff'},
+  {id:'Rust',          type:'technology',        color:'#00ccff'},
+  {id:'Three.js',      type:'technology',        color:'#00ccff'},
+  {id:'stewart-pakistan', type:'entity/institution', color:'#ff8800'},
+  {id:'infotech-group',   type:'entity/institution', color:'#ff8800'},
+  {id:'kadir-has-university', type:'entity/institution', color:'#ff8800'},
+], edges:[
+  {from:'hadi-khan',from:'distkv'},{from:'hadi-khan',to:'neuralkit'},
+  {from:'hadi-khan',to:'nanohttp'},{from:'hadi-khan',to:'gitlet'},
+  {from:'hadi-khan',to:'tui'},{from:'hadi-khan',to:'kontainer'},
+  {from:'hadi-khan',to:'pipecraft'},{from:'hadi-khan',to:'nexus'},
+  {from:'nexus',to:'Python'},{from:'nexus',to:'Node.js'},
+  {from:'distkv',to:'WAL Persistence'},{from:'neuralkit',to:'BatchNorm'},
+  {from:'nanohttp',to:'WebSocket'},{from:'kontainer',to:'Linux Namespaces'},
+]};
+buildGraph(FALLBACK);
+
+// Fetch live graph from API (replaces fallback when ready)
 async function fetchGraph(){
   try{
-    const r=await fetch('http://localhost:8766/api/graph');
+    const r=await fetch('http://localhost:8766/api/graph',{signal:AbortSignal.timeout(4000)});
+    if(!r.ok) return;
     const data=await r.json();
-    buildGraph(data);
-  }catch(e){console.warn('Graph fetch failed:',e);}
+    if(data.nodes && data.nodes.length>0) buildGraph(data);
+  }catch(e){}
 }
-fetchGraph();
-setInterval(fetchGraph, 30000); // refresh every 30s
+setTimeout(fetchGraph, 2000);
+setInterval(fetchGraph, 30000);
 
 // ── Live WebSocket state ───────────────────────────────────────────────────
 let wsState={neural:{epoch:0,loss:1,val_acc:0,status:'idle'},brain:{rag_docs:0}};
