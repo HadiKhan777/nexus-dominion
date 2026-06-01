@@ -115,14 +115,15 @@ class CodeExecutor:
 
 
 class Brain:
-    def __init__(self, rag, status_cb=None, memory=None, provider=None, chat_log=None):
+    def __init__(self, rag, status_cb=None, memory=None, provider=None, chat_log=None, vision_ai=None):
         self.rag      = rag
         self.ollama   = OllamaClient()
         self.provider = provider or self.ollama
         self.executor = CodeExecutor()
         self.status   = status_cb or (lambda s: None)
         self.memory   = memory
-        self.chat_log = chat_log   # ObsidianChatLogger
+        self.chat_log = chat_log
+        self.vision_ai = vision_ai   # ObsidianChatLogger
         self.history  = list(memory.recent_conversation(8)) if memory else []
         self._lock    = threading.Lock()
 
@@ -131,6 +132,9 @@ class Brain:
         context = self.rag.build_context(user_input)
         if self.memory:
             context = self.memory.facts_context() + context
+        # Inject live camera context if vision is active
+        if self.vision_ai:
+            context = self.vision_ai.visual_context() + context
 
         hist_str = '\n'.join(
             f'{"User" if r=="user" else "NEXUS"}: {m}'

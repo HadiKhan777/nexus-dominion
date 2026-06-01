@@ -85,9 +85,11 @@ def main():
     from brain.providers import best_available as _best
     chat_provider = _best(providers, ['groq', 'openrouter', 'ollama'])
     from brain.obsidian_chat_log import ObsidianChatLogger
-    chat_log    = ObsidianChatLogger()
-    brain       = Brain(rag, memory=memory, provider=chat_provider,
-                        chat_log=chat_log)
+    from brain.vision_ai        import VisionAI
+    chat_log  = ObsidianChatLogger()
+    vision_ai = VisionAI(providers=providers, memory=memory, obs_writer=obs_writer)
+    brain     = Brain(rag, memory=memory, provider=chat_provider,
+                      chat_log=chat_log, vision_ai=vision_ai)
     swarm       = AgentSwarm(rag, brain.ollama,
                              providers=providers, obs_writer=obs_writer)
     voice       = VoiceEngine()

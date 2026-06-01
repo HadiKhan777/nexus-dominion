@@ -171,6 +171,7 @@ class NexusTerminalV2:
         self.file_watch  = file_watch
         self.self_modify = self_modify
         self.memory      = memory
+        self.vision_ai   = getattr(brain, "vision_ai", None)
         self.spin_idx    = 0
         self.ai_stream   = False
         self.cur_resp    = ''
@@ -188,8 +189,8 @@ class NexusTerminalV2:
         self.saved_buf   = ''                       # buffer stashed during recall
         # Tab completion
         self.COMMANDS = ['/swarm','/consensus','/agent','/train','/search','/remember',
-                         '/recall','/evolve','/diff','/camera','/voice','/scan','/3d',
-                         '/clear','/help','/quit']
+                         '/recall','/evolve','/diff','/camera','/look','/watch','/observe',
+                         '/voice','/scan','/3d','/clear','/help','/quit']
 
     def w(self, *p):   self._buf.append(''.join(str(x) for x in p))
     def flush(self):   sys.stdout.write(''.join(self._buf)); sys.stdout.flush(); self._buf.clear()
@@ -789,10 +790,53 @@ class NexusTerminalV2:
         elif c == '/camera':
             if self.vision.status in ('live',):
                 self.vision.stop()
+                if self.vision_ai: self.vision_ai.stop_watching()
                 self.messages.append(('nexus','Camera disabled.'))
             else:
                 self.vision.start()
-                self.messages.append(('nexus','Camera enabled. Opening /dev/video0...'))
+                self.messages.append(('nexus','Camera enabled. Use /look to see what I see.'))
+
+        elif c == '/look':
+            question = ' '.join(parts[1:]) or 'Describe what you see in detail.'
+            if not self.vision_ai:
+                self.messages.append(('nexus','Vision AI not available.'))
+            else:
+                def _look():
+                    self.ai_stream = True
+                    self.messages.append(('user', f'[/look] {question}'))
+                    result = self.vision_ai.describe(question)
+                    self.messages.append(('nexus', result))
+                    self.chat_scroll = 0
+                    self.ai_stream = False
+                threading.Thread(target=_look, daemon=True).start()
+                self.messages.append(('nexus', 'Capturing frame...'))
+
+        elif c == '/watch':
+            interval = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 30
+            if not self.vision_ai:
+                self.messages.append(('nexus','Vision AI not available.'))
+            elif self.vision_ai.watching:
+                self.vision_ai.stop_watching()
+                self.messages.append(('nexus','Continuous observation stopped.'))
+            else:
+                self.vision.start()  # enable camera
+                self.vision_ai.start_watching(interval=interval)
+                self.messages.append(('nexus', f'Watching every {interval}s. Everything I see is stored in memory + Obsidian. /watch to stop.'))
+
+        elif c == '/observe':
+            # Ask vision AI a specific question about the scene
+            q = ' '.join(parts[1:]) or 'Who is in front of the camera and what are they doing?'
+            if not self.vision_ai:
+                self.messages.append(('nexus','Vision AI not available.'))
+            else:
+                def _obs():
+                    self.ai_stream = True
+                    r = self.vision_ai.answer_about_scene(q)
+                    self.messages.append(('nexus', r))
+                    self.chat_scroll = 0
+                    self.ai_stream = False
+                threading.Thread(target=_obs, daemon=True).start()
+                self.messages.append(('user', f'[/observe] {q}'))
 
         elif c == '/evolve':
             def do_evolve():
