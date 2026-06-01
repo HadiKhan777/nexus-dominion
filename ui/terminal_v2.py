@@ -904,18 +904,32 @@ class NexusTerminalV2:
                     raw = os.read(tty_fd, 16)
                     seq = raw.decode('utf-8', errors='ignore')
 
-                    # Handle complete escape sequences directly (no state machine needed)
-                    if   seq == '\x1b[5~':            self.chat_scroll += 8; continue
-                    elif seq == '\x1b[6~':            self.chat_scroll = max(0, self.chat_scroll - 8); continue
-                    elif seq == '\x1b[1~':            self.chat_scroll = 9999; continue  # Home
-                    elif seq == '\x1b[4~':            self.chat_scroll = 0; continue     # End
-                    elif seq in ('\x1b[A', '\x1bOA'): self._history_prev(); continue
-                    elif seq in ('\x1b[B', '\x1bOB'): self._history_next(); continue
-                    # Mouse wheel SGR: \x1b[<64;x;yM = up, <65 = down
-                    elif '\x1b[<64;' in seq:          self.chat_scroll += 3; continue
-                    elif '\x1b[<65;' in seq:          self.chat_scroll = max(0, self.chat_scroll - 3); continue
+                    # Log unknown escape sequences for debugging
+                    def _handle_seq(s, log=LOG):
+                        # Page Up — multiple terminal variants
+                        if s in ('\x1b[5~', '\x1b[5;2~') or s.startswith('\x1b[5'):
+                            self.chat_scroll += 8; return True
+                        # Page Down
+                        if s in ('\x1b[6~', '\x1b[6;2~') or s.startswith('\x1b[6'):
+                            self.chat_scroll = max(0, self.chat_scroll - 8); return True
+                        # Home / End
+                        if s in ('\x1b[1~','\x1b[H','\x1bOH'): self.chat_scroll=9999; return True
+                        if s in ('\x1b[4~','\x1b[F','\x1bOF'): self.chat_scroll=0; return True
+                        # Up / Down arrows
+                        if s in ('\x1b[A','\x1bOA'): self._history_prev(); return True
+                        if s in ('\x1b[B','\x1bOB'): self._history_next(); return True
+                        # Mouse wheel
+                        if '\x1b[<64;' in s: self.chat_scroll += 3; return True
+                        if '\x1b[<65;' in s: self.chat_scroll = max(0, self.chat_scroll - 3); return True
+                        # Log unrecognized escape sequences
+                        if s.startswith('\x1b') and len(s) > 1:
+                            log.write(f"ESC SEQ: {s!r}\n"); log.flush()
+                        return False
 
-                    # Process remaining bytes one at a time for normal keys
+                    if seq.startswith('\x1b') and len(seq) > 1:
+                        if _handle_seq(seq): continue
+
+                    # Process char by char for normal input
                     for key in seq:
                         if not self.handle_key(key):
                             self._running = False
