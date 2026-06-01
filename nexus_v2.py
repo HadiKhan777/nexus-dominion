@@ -89,6 +89,7 @@ def main():
     chat_log  = ObsidianChatLogger()
     brain     = Brain(rag, memory=memory, provider=chat_provider,
                       chat_log=chat_log)
+    brain._providers = providers  # enables fallback chain
     swarm       = AgentSwarm(rag, brain.ollama,
                              providers=providers, obs_writer=obs_writer)
     voice       = VoiceEngine()

@@ -118,7 +118,8 @@ class Brain:
     def __init__(self, rag, status_cb=None, memory=None, provider=None, chat_log=None, vision_ai=None):
         self.rag      = rag
         self.ollama   = OllamaClient()
-        self.provider = provider or self.ollama
+        self.provider   = provider or self.ollama
+        self._providers  = None  # set by nexus_v2 after build_providers
         self.executor = CodeExecutor()
         self.status   = status_cb or (lambda s: None)
         self.memory   = memory
@@ -153,7 +154,16 @@ class Brain:
         def collect(tok):
             full_response.append(tok)
             on_token(tok)
+
+        # Try primary provider, fall back if it returns nothing (rate limit etc)
         self.provider.stream(prompt, on_token=collect)
+        if not full_response:
+            fallbacks = ['groq', 'mistral', 'openrouter', 'ollama']
+            if hasattr(self, '_providers'):
+                from brain.providers import best_available
+                fb = best_available(self._providers, fallbacks)
+                if fb and fb is not self.provider:
+                    fb.stream(prompt, on_token=collect)
 
         response_text = ''.join(full_response)
 
