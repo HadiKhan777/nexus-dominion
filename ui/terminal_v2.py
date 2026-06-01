@@ -900,9 +900,26 @@ class NexusTerminalV2:
 
             while self._running:
                 try:
-                    key = os.read(tty_fd, 1).decode('utf-8', errors='ignore')
-                    if not self.handle_key(key):
-                        break
+                    # Read up to 16 bytes — captures complete escape sequences in one read
+                    raw = os.read(tty_fd, 16)
+                    seq = raw.decode('utf-8', errors='ignore')
+
+                    # Handle complete escape sequences directly (no state machine needed)
+                    if   seq == '\x1b[5~':            self.chat_scroll += 8; continue
+                    elif seq == '\x1b[6~':            self.chat_scroll = max(0, self.chat_scroll - 8); continue
+                    elif seq == '\x1b[1~':            self.chat_scroll = 9999; continue  # Home
+                    elif seq == '\x1b[4~':            self.chat_scroll = 0; continue     # End
+                    elif seq in ('\x1b[A', '\x1bOA'): self._history_prev(); continue
+                    elif seq in ('\x1b[B', '\x1bOB'): self._history_next(); continue
+                    # Mouse wheel SGR: \x1b[<64;x;yM = up, <65 = down
+                    elif '\x1b[<64;' in seq:          self.chat_scroll += 3; continue
+                    elif '\x1b[<65;' in seq:          self.chat_scroll = max(0, self.chat_scroll - 3); continue
+
+                    # Process remaining bytes one at a time for normal keys
+                    for key in seq:
+                        if not self.handle_key(key):
+                            self._running = False
+                            break
                 except KeyboardInterrupt:
                     break
                 except Exception as ex:

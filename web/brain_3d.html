@@ -2,362 +2,351 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>NEXUS — 3D Brain</title>
+<title>NEXUS — Knowledge Universe</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#000;overflow:hidden;font-family:'Courier New',monospace;color:#e0e0e0}
 canvas{display:block}
 #ui{position:fixed;inset:0;pointer-events:none;z-index:10}
-#title{
-  position:fixed;top:1.5rem;left:50%;transform:translateX(-50%);
-  font-size:clamp(10px,1.5vw,13px);letter-spacing:0.5em;color:rgba(200,255,0,0.6);
-  text-transform:uppercase;
-}
-#metrics{
-  position:fixed;top:1.5rem;right:1.5rem;
-  font-size:10px;color:#333;letter-spacing:0.1em;line-height:2;text-align:right;
-}
-#metrics span{color:#c8ff00}
-#neural-stats{
-  position:fixed;bottom:5rem;left:50%;transform:translateX(-50%);
-  display:flex;gap:3rem;font-size:10px;color:#333;letter-spacing:0.1em;text-align:center;
-}
-.ns-val{display:block;font-size:1.4rem;font-weight:700;color:#c8ff00;line-height:1}
-#status{
-  position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);
-  font-size:9px;color:#222;letter-spacing:0.3em;text-transform:uppercase;
-}
-#conn{position:fixed;top:1.5rem;left:1.5rem;font-size:9px;color:#333;letter-spacing:0.2em}
-.dot{
-  display:inline-block;width:6px;height:6px;border-radius:50%;
-  background:#c8ff00;margin-right:4px;
-  animation:pulse 1.5s ease-in-out infinite;vertical-align:middle;
-}
-.dot.off{background:#333;animation:none}
-@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(200,255,0,0.4)}
-  50%{opacity:0.6;box-shadow:0 0 0 8px rgba(200,255,0,0)}}
+#title{position:fixed;top:1rem;left:50%;transform:translateX(-50%);
+  font-size:11px;letter-spacing:.4em;color:rgba(200,255,0,.6);text-transform:uppercase}
+#stats{position:fixed;top:1rem;right:1.5rem;font-size:9px;color:#333;
+  letter-spacing:.1em;line-height:2;text-align:right}
+#stats span{color:#c8ff00}
+#legend{position:fixed;bottom:5rem;left:1.5rem;font-size:9px;
+  color:#444;line-height:1.9;letter-spacing:.08em}
+.leg{display:flex;align-items:center;gap:.5rem}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+#tooltip{position:fixed;pointer-events:none;background:rgba(0,0,8,.95);
+  border-left:2px solid #c8ff00;padding:.75rem 1rem;max-width:240px;
+  font-size:10px;display:none;line-height:1.7;z-index:20}
+.tt-name{font-size:.85rem;font-weight:700;color:#c8ff00}
+.tt-type{font-size:8px;color:#444;text-transform:uppercase;letter-spacing:.2em;margin:.2rem 0 .5rem}
+.tt-links{font-size:9px;color:#666}
+#status{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);
+  font-size:9px;color:#222;letter-spacing:.3em;text-transform:uppercase}
+#conn{position:fixed;top:1rem;left:1.5rem;font-size:9px;color:#333;letter-spacing:.15em}
+.dot-live{display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:#c8ff00;margin-right:4px;vertical-align:middle;
+  animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(200,255,0,.4)}
+  50%{opacity:.6;box-shadow:0 0 0 6px rgba(200,255,0,0)}}
 </style>
 </head>
 <body>
 <div id="ui">
-  <div id="title">NEXUS &nbsp;·&nbsp; NEURAL ACTIVITY MONITOR</div>
-  <div id="conn"><span class="dot off" id="conn-dot"></span><span id="conn-text">connecting...</span></div>
-  <div id="metrics">
-    <div>EPOCH <span id="m-epoch">--/--</span></div>
-    <div>LOSS <span id="m-loss">--</span></div>
-    <div>ACC <span id="m-acc">--</span></div>
-    <div>LR <span id="m-lr">--</span></div>
-    <div>RAG <span id="m-rag">--</span> docs</div>
+  <div id="title">NEXUS &nbsp;·&nbsp; KNOWLEDGE UNIVERSE</div>
+  <div id="conn"><span class="dot-live" id="cdot"></span><span id="ctxt">connecting...</span></div>
+  <div id="stats">
+    <div>NODES <span id="s-nodes">--</span></div>
+    <div>EDGES <span id="s-edges">--</span></div>
+    <div>EPOCH <span id="s-epoch">--</span></div>
+    <div>ACC <span id="s-acc">--</span></div>
+    <div>RAG <span id="s-rag">--</span> docs</div>
   </div>
-  <div id="neural-stats">
-    <div><span class="ns-val" id="s-epoch">0</span>epoch</div>
-    <div><span class="ns-val" id="s-loss">1.000</span>loss</div>
-    <div><span class="ns-val" id="s-acc">0.00</span>acc</div>
-    <div><span class="ns-val" id="s-status">IDLE</span>status</div>
+  <div id="legend">
+    <div class="leg"><span class="dot" style="background:#c8ff00"></span> project</div>
+    <div class="leg"><span class="dot" style="background:#ff33aa"></span> person</div>
+    <div class="leg"><span class="dot" style="background:#ff8800"></span> company</div>
+    <div class="leg"><span class="dot" style="background:#00ccff"></span> technology</div>
+    <div class="leg"><span class="dot" style="background:#aa33ff"></span> concept</div>
+    <div class="leg"><span class="dot" style="background:#ffcc00"></span> certification</div>
+    <div class="leg"><span class="dot" style="background:#33ff88"></span> session</div>
+    <div class="leg"><span class="dot" style="background:#00ff99"></span> chat log</div>
   </div>
-  <div id="status">drag to rotate &nbsp;·&nbsp; scroll to zoom &nbsp;·&nbsp; live data via websocket :8765</div>
+  <div id="tooltip">
+    <div class="tt-name" id="tt-name"></div>
+    <div class="tt-type" id="tt-type"></div>
+    <div class="tt-links" id="tt-links"></div>
+  </div>
+  <div id="status">drag · scroll zoom · hover nodes · live data via ws:8765</div>
 </div>
 
 <script type="importmap">
-{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+"three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
 </script>
 <script type="module">
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { OrbitControls }  from 'three/addons/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-// ── Scene ─────────────────────────────────────────────────────────────────
+// ── Scene ──────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(innerWidth, innerHeight);
+renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setClearColor(0x000000);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
 document.body.appendChild(renderer.domElement);
 
 const scene  = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 1000);
-camera.position.set(0, 0, 40);
+const camera = new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,2000);
+camera.position.set(0,30,110);
 
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.06;
-controls.autoRotate = true;
-controls.autoRotateSpeed = 0.5;
+const controls = new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=.05;
+controls.autoRotate=true; controls.autoRotateSpeed=.25;
+controls.minDistance=20; controls.maxDistance=300;
+
+// Post-processing
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene,camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),1.2,.5,.75));
 
 // Lights
-scene.add(new THREE.AmbientLight(0x050510, 2));
-const ptLight = new THREE.PointLight(0xc8ff00, 4, 80);
-scene.add(ptLight);
-[0xff00aa, 0x00ffff, 0xaa00ff].forEach((c,i)=>{
-  const l = new THREE.PointLight(c, 1.5, 50);
-  l.position.set(Math.cos(i*2.09)*25, Math.sin(i*1.3)*10, Math.sin(i*2.09)*25);
-  scene.add(l);
+scene.add(new THREE.AmbientLight(0x050510,2));
+const sun = new THREE.PointLight(0xc8ff00,4,200); scene.add(sun);
+[[0xff33aa,60,20,60],[0x00ccff,-60,0,-60],[0xaa33ff,0,40,-80]].forEach(([c,x,y,z])=>{
+  const l=new THREE.PointLight(c,1.5,120); l.position.set(x,y,z); scene.add(l);
 });
 
-// ── Post-processing ───────────────────────────────────────────────────────
-const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 1.6, 0.5, 0.75);
-composer.addPass(bloom);
-
-// ── Background stars ──────────────────────────────────────────────────────
+// ── Stars ──────────────────────────────────────────────────────────────────
 (()=>{
-  const n=5000, pos=new Float32Array(n*3), col=new Float32Array(n*3);
-  const PALETTE=[[1,1,1],[0.78,1,0],[0,1,1],[1,0,0.67]];
+  const n=5000,pos=new Float32Array(n*3);
   for(let i=0;i<n;i++){
-    const r=100+Math.random()*800,t=Math.random()*Math.PI*2,p=Math.acos(2*Math.random()-1);
-    pos[i*3]=r*Math.sin(p)*Math.cos(t);pos[i*3+1]=r*Math.sin(p)*Math.sin(t);pos[i*3+2]=r*Math.cos(p);
-    const c=PALETTE[Math.floor(Math.random()*4)];
-    col[i*3]=c[0];col[i*3+1]=c[1];col[i*3+2]=c[2];
+    const r=200+Math.random()*600,t=Math.random()*Math.PI*2,p=Math.acos(2*Math.random()-1);
+    pos[i*3]=r*Math.sin(p)*Math.cos(t); pos[i*3+1]=r*Math.sin(p)*Math.sin(t)*0.4; pos[i*3+2]=r*Math.cos(p);
   }
-  const g=new THREE.BufferGeometry();
-  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
-  g.setAttribute('color',new THREE.BufferAttribute(col,3));
-  scene.add(new THREE.Points(g,new THREE.PointsMaterial({size:0.5,vertexColors:true,transparent:true,opacity:0.8})));
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  scene.add(new THREE.Points(g,new THREE.PointsMaterial({size:.6,color:0x334433,transparent:true,opacity:.8})));
 })();
 
-// ── Neural network graph ──────────────────────────────────────────────────
-// Architecture: [2, 64, 64, 64, 3] — matches neuralkit default model
+// ── Central TorusKnot (Hadi) ────────────────────────────────────────────────
+const HOLO_V=`varying vec3 vN,vP;varying vec2 vU;void main(){vN=normalize(normalMatrix*normal);vP=(modelMatrix*vec4(position,1)).xyz;vU=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1);}`;
+const HOLO_F=`uniform float t;uniform vec3 col;varying vec3 vN,vP;varying vec2 vU;void main(){vec3 v=normalize(cameraPosition-vP);float f=pow(1.-abs(dot(vN,v)),2.5);float s=sin(vP.y*18.+t*4.)*.5+.5;float g=max(step(.97,fract(vU.x*10.)),step(.97,fract(vU.y*10.)));vec3 c=col*(.2+f*.8)*(.9+s*.1);c+=col*g*.25;gl_FragColor=vec4(c,.3+f*.65);}`;
 
-const ARCH = [2, 16, 16, 16, 3];  // simplified for visualization
-const LAYER_COLS = [0xff3333, 0x3399ff, 0xc8ff00, 0xff00aa, 0xaa33ff];
-const nodeGroups = [];
-const nodeMeshes = [];
-const edgeMeshes = [];
-const nodePositions = [];
-
-// Holographic node shader
-const NODE_VERT = `
-varying vec3 vNorm; varying vec3 vPos;
-void main(){vNorm=normalize(normalMatrix*normal);vPos=(modelMatrix*vec4(position,1)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1);}
-`;
-const NODE_FRAG = `
-uniform float u_time; uniform vec3 u_col; uniform float u_act;
-varying vec3 vNorm; varying vec3 vPos;
-void main(){
-  vec3 view=normalize(cameraPosition-vPos);
-  float fres=pow(1.-abs(dot(vNorm,view)),2.5);
-  float scan=sin(vPos.y*25.+u_time*5.)*0.5+0.5;
-  vec3 col=u_col*(0.2+fres*0.8+u_act*0.5)*(0.9+scan*0.1);
-  gl_FragColor=vec4(col,0.4+fres*0.6);
-}
-`;
-
-const layerSpacing = 12;
-const totalW = (ARCH.length-1)*layerSpacing;
-
-ARCH.forEach((count, li) => {
-  const positions = [];
-  const layerX = li*layerSpacing - totalW/2;
-  const nodeSpacing = Math.min(4, 24/count);
-  const totalH = (count-1)*nodeSpacing;
-
-  for(let ni=0; ni<count; ni++){
-    const y = ni*nodeSpacing - totalH/2;
-    const z = (Math.random()-0.5)*2;
-    positions.push(new THREE.Vector3(layerX, y, z));
-
-    const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.35, 16, 16),
-      new THREE.ShaderMaterial({
-        vertexShader: NODE_VERT,
-        fragmentShader: NODE_FRAG,
-        uniforms: {
-          u_time:{value:0},
-          u_col:{value:new THREE.Color(LAYER_COLS[li%LAYER_COLS.length])},
-          u_act:{value:0.3},
-          cameraPosition:{value:camera.position}
-        },
-        transparent:true, side:THREE.DoubleSide,
-        blending:THREE.AdditiveBlending, depthWrite:false,
-      })
-    );
-    mesh.position.copy(positions[ni]);
-    scene.add(mesh);
-    nodeMeshes.push({mesh, li, ni, basePos: positions[ni].clone()});
-  }
-  nodePositions.push(positions);
-});
-
-// Edges between layers
-for(let li=0; li<ARCH.length-1; li++){
-  for(let ni=0; ni<ARCH[li]; ni++){
-    for(let nj=0; nj<ARCH[li+1]; nj++){
-      // Only draw a fraction of edges (sparse visualization)
-      if(Math.random() > 0.3) continue;
-      const from = nodePositions[li][ni];
-      const to   = nodePositions[li+1][nj];
-      const pts  = [from, to];
-      const geo  = new THREE.BufferGeometry().setFromPoints(pts);
-      const mat  = new THREE.LineBasicMaterial({
-        color: LAYER_COLS[li%LAYER_COLS.length],
-        transparent:true, opacity:0.08,
-        blending: THREE.AdditiveBlending,
-      });
-      const line = new THREE.Line(geo, mat);
-      scene.add(line);
-      edgeMeshes.push({line, li, ni, nj, mat});
-    }
-  }
-}
-
-// ── Data flow particles ────────────────────────────────────────────────────
-const FLOW_COUNT = 200;
-const flowGeo = new THREE.BufferGeometry();
-const flowPos = new Float32Array(FLOW_COUNT*3);
-const flowCol = new Float32Array(FLOW_COUNT*3);
-const flowData = Array.from({length:FLOW_COUNT}, ()=>({
-  li: Math.floor(Math.random()*(ARCH.length-1)),
-  ni: 0, nj: 0, t: Math.random(), spd: 0.005+Math.random()*0.015
-}));
-flowData.forEach(f=>{
-  f.ni = Math.floor(Math.random()*ARCH[f.li]);
-  f.nj = Math.floor(Math.random()*ARCH[f.li+1]);
-});
-flowGeo.setAttribute('position',new THREE.BufferAttribute(flowPos,3));
-flowGeo.setAttribute('color',   new THREE.BufferAttribute(flowCol,3));
-const flowPts = new THREE.Points(flowGeo, new THREE.PointsMaterial({
-  size:0.25, vertexColors:true, transparent:true, opacity:0.9,
-  blending:THREE.AdditiveBlending, depthWrite:false
-}));
-scene.add(flowPts);
-
-// ── Core torus knot ────────────────────────────────────────────────────────
-const coreKnot = new THREE.Mesh(
-  new THREE.TorusKnotGeometry(3, 0.4, 128, 16, 3, 5),
-  new THREE.ShaderMaterial({
-    vertexShader: NODE_VERT,
-    fragmentShader: NODE_FRAG,
-    uniforms:{u_time:{value:0},u_col:{value:new THREE.Color(0xc8ff00)},u_act:{value:1},cameraPosition:{value:camera.position}},
-    transparent:true, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false,
-  })
+const core = new THREE.Mesh(
+  new THREE.TorusKnotGeometry(7,1.1,180,20,3,5),
+  new THREE.ShaderMaterial({vertexShader:HOLO_V,fragmentShader:HOLO_F,
+    uniforms:{t:{value:0},col:{value:new THREE.Color(0xc8ff00)},cameraPosition:{value:camera.position}},
+    transparent:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,depthWrite:false})
 );
-scene.add(coreKnot);
+scene.add(core);
+[9,11,13].forEach((r,i)=>{
+  scene.add(new THREE.Mesh(new THREE.SphereGeometry(r,12,12),
+    new THREE.MeshBasicMaterial({color:0xc8ff00,transparent:true,opacity:.012-i*.003,side:THREE.BackSide})));
+});
 
-// Gradient background plane shader
-const BG_FRAG = `
-uniform float u_time; uniform vec2 u_res;
-float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}
-float noise(vec2 p){vec2 i=floor(p),f=fract(p),u=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),u.x),u.y);}
-float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p=p*2.1+1.7;a*=.5;}return v;}
-void main(){
-  vec2 uv=gl_FragCoord.xy/u_res;
-  float t=u_time*.06;
-  vec2 q=vec2(fbm(uv+t),fbm(uv+vec2(1)));
-  float f=fbm(uv+1.8*q+vec2(.15*t));
-  vec3 col=mix(vec3(.01,.01,.03),vec3(.02,.05,.01),clamp(f*f*4.,0.,1.));
-  col+=vec3(.04,.08,0.)*f*f*1.5;
-  gl_FragColor=vec4(col,1.);
+// ── Knowledge Graph ────────────────────────────────────────────────────────
+let graphNodes=[], graphEdges=[], nodeMeshes=[], edgeLines=[];
+const raycaster=new THREE.Raycaster(), mouse=new THREE.Vector2();
+let hoveredNode=null;
+const tooltip=document.getElementById('tooltip');
+
+const TYPE_SIZE = {
+  'project':1.8, 'entity/person':2.2, 'entity/institution':1.6,
+  'technology':1.3, 'concept':1.2, 'certification':.9,
+  'session':.8, 'chat-history':.8, 'agent-log':.7,
+};
+
+function buildGraph(data){
+  // Clear old
+  nodeMeshes.forEach(m=>scene.remove(m.mesh));
+  edgeLines.forEach(l=>scene.remove(l));
+  nodeMeshes=[]; edgeLines=[];
+
+  graphNodes = data.nodes;
+  graphEdges = data.edges;
+
+  const N = graphNodes.length;
+  if(!N) return;
+
+  // Position nodes on concentric spheres by type
+  const typeOrder = ['entity/person','project','entity/institution','technology','concept',
+                     'certification','session','chat-history','agent-log','other'];
+  const typeRadius = {
+    'entity/person':18,'project':26,'entity/institution':30,
+    'technology':35,'concept':40,'certification':46,'session':52,
+    'chat-history':48,'agent-log':50,'other':55
+  };
+
+  // Assign positions
+  const typeCount={};
+  const positions={};
+  graphNodes.forEach(n=>{
+    typeCount[n.type]=(typeCount[n.type]||0)+1;
+  });
+  const typeIdx={};
+  graphNodes.forEach((n,i)=>{
+    const r  = typeRadius[n.type]||42;
+    const idx = typeIdx[n.type]||0;
+    const total = typeCount[n.type]||1;
+    // Fibonacci sphere distribution per type
+    const phi = Math.acos(1-2*(idx+.5)/total);
+    const theta = Math.PI*(1+Math.sqrt(5))*idx;
+    positions[n.id] = new THREE.Vector3(
+      r*Math.sin(phi)*Math.cos(theta),
+      r*Math.sin(phi)*Math.sin(theta)*0.35,
+      r*Math.cos(phi)
+    );
+    typeIdx[n.type]=(typeIdx[n.type]||0)+1;
+  });
+
+  // Create node meshes
+  graphNodes.forEach(n=>{
+    const color = parseInt(n.color.replace('#','0x'));
+    const size  = TYPE_SIZE[n.type]||1.0;
+    const geo   = n.type==='entity/person'
+                  ? new THREE.OctahedronGeometry(size,0)
+                  : n.type==='project'
+                    ? new THREE.IcosahedronGeometry(size,0)
+                    : new THREE.SphereGeometry(size,10,10);
+    const mat = new THREE.MeshPhongMaterial({color,emissive:color,emissiveIntensity:.3,
+      transparent:true,opacity:.85});
+    const mesh = new THREE.Mesh(geo,mat);
+    const pos  = positions[n.id];
+    if(!pos) return;
+    mesh.position.copy(pos);
+    mesh.userData = {node:n, pos:pos.clone()};
+    scene.add(mesh);
+    nodeMeshes.push({mesh,node:n});
+
+    // Glow aura
+    const aura = new THREE.Mesh(new THREE.SphereGeometry(size*2,8,8),
+      new THREE.MeshBasicMaterial({color,transparent:true,opacity:.04,side:THREE.BackSide}));
+    mesh.add(aura);
+
+    // Point light for important nodes
+    if(['project','entity/person'].includes(n.type)){
+      const pl=new THREE.PointLight(color,.6,20); mesh.add(pl);
+    }
+  });
+
+  // Build edge lookup
+  const edgeCount={};
+  graphEdges.forEach(e=>{ edgeCount[e.from]=(edgeCount[e.from]||0)+1; });
+
+  // Draw edges (only top connected nodes to avoid clutter)
+  const drawn = new Set();
+  graphEdges.slice(0,200).forEach(e=>{
+    const a=positions[e.from], b=positions[e.to];
+    if(!a||!b) return;
+    const key=`${[e.from,e.to].sort().join('-')}`;
+    if(drawn.has(key)) return;
+    drawn.add(key);
+    const pts=[a,b];
+    const geo=new THREE.BufferGeometry().setFromPoints(pts);
+    const nodeA=graphNodes.find(n=>n.id===e.from);
+    const col=nodeA ? parseInt(nodeA.color.replace('#','0x')) : 0x222222;
+    const line=new THREE.Line(geo,new THREE.LineBasicMaterial(
+      {color:col,transparent:true,opacity:.08,blending:THREE.AdditiveBlending}));
+    scene.add(line);
+    edgeLines.push(line);
+  });
+
+  document.getElementById('s-nodes').textContent=N;
+  document.getElementById('s-edges').textContent=data.edges.length;
 }
-`;
-const bgScene=new THREE.Scene(), bgCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
-const bgUni={u_time:{value:0},u_res:{value:new THREE.Vector2(innerWidth,innerHeight)}};
-bgScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),
-  new THREE.ShaderMaterial({vertexShader:'void main(){gl_Position=vec4(position,1);}',fragmentShader:BG_FRAG,uniforms:bgUni})
-));
-const bgRenderer=new THREE.WebGLRenderer({canvas:document.createElement('canvas')});
-bgRenderer.setSize(innerWidth,innerHeight);
 
-// ── WebSocket live data ────────────────────────────────────────────────────
-let state = {neural:{epoch:0,max:100,loss:1,val_acc:0,lr:0.003,status:'connecting',layers:[0.3,0.3,0.3,0.3,0.3,0.3],loss_hist:[],acc_hist:[]},security:{devices:[],threat:'--',scan_pct:0},brain:{streaming:false,rag_docs:0,ollama_up:false}};
-let wsConnected = false;
+// Fetch graph from API
+async function fetchGraph(){
+  try{
+    const r=await fetch('http://localhost:8766/api/graph');
+    const data=await r.json();
+    buildGraph(data);
+  }catch(e){console.warn('Graph fetch failed:',e);}
+}
+fetchGraph();
+setInterval(fetchGraph, 30000); // refresh every 30s
+
+// ── Live WebSocket state ───────────────────────────────────────────────────
+let wsState={neural:{epoch:0,loss:1,val_acc:0,status:'idle'},brain:{rag_docs:0}};
+let wsConn=false;
 
 function connectWS(){
   try{
-    const ws = new WebSocket('ws://localhost:8765');
-    ws.onopen = ()=>{
-      wsConnected=true;
-      document.getElementById('conn-dot').classList.remove('off');
-      document.getElementById('conn-text').textContent='NEXUS CONNECTED';
-    };
-    ws.onmessage = e=>{
-      try{ state=JSON.parse(e.data); updateUI(); }catch(_){}
-    };
-    ws.onclose = ()=>{
-      wsConnected=false;
-      document.getElementById('conn-dot').classList.add('off');
-      document.getElementById('conn-text').textContent='reconnecting...';
-      setTimeout(connectWS, 2000);
-    };
-  }catch(_){ setTimeout(connectWS,3000); }
+    const ws=new WebSocket('ws://localhost:8765');
+    ws.onopen=()=>{wsConn=true;document.getElementById('cdot').style.animation='pulse 1.5s ease-in-out infinite';document.getElementById('ctxt').textContent='NEXUS LIVE';};
+    ws.onmessage=e=>{try{wsState=JSON.parse(e.data);updateStats();}catch(_){}};
+    ws.onclose=()=>{wsConn=false;document.getElementById('ctxt').textContent='reconnecting...';setTimeout(connectWS,2000);};
+  }catch(_){setTimeout(connectWS,3000);}
 }
 connectWS();
 
-function updateUI(){
-  const n=state.neural;
-  document.getElementById('m-epoch').textContent = `${n.epoch}/${n.max}`;
-  document.getElementById('m-loss').textContent  = n.loss?.toFixed(4)||'--';
-  document.getElementById('m-acc').textContent   = n.val_acc?.toFixed(4)||'--';
-  document.getElementById('m-lr').textContent    = n.lr?.toExponential(2)||'--';
-  document.getElementById('m-rag').textContent   = state.brain?.rag_docs||0;
-  document.getElementById('s-epoch').textContent = n.epoch;
-  document.getElementById('s-loss').textContent  = n.loss?.toFixed(3)||'--';
-  document.getElementById('s-acc').textContent   = n.val_acc?.toFixed(3)||'--';
-  document.getElementById('s-status').textContent= (n.status||'--').toUpperCase();
+function updateStats(){
+  const n=wsState.neural;
+  document.getElementById('s-epoch').textContent=n.epoch||'--';
+  document.getElementById('s-acc').textContent=n.val_acc?n.val_acc.toFixed(3):'--';
+  document.getElementById('s-rag').textContent=wsState.brain?.rag_docs||0;
 }
 
-// ── Animation ─────────────────────────────────────────────────────────────
-let t=0;
-const clock=new THREE.Clock();
+// ── Shooting stars ─────────────────────────────────────────────────────────
+const shooters=[];
+function spawn(){
+  const s=new THREE.Vector3((Math.random()-.5)*300,(Math.random()-.5)*100,(Math.random()-.5)*300);
+  const d=new THREE.Vector3().randomDirection().multiplyScalar(40);
+  const geo=new THREE.BufferGeometry().setFromPoints([s,s.clone().add(d)]);
+  const colors=['#c8ff00','#ff33aa','#00ccff','#aa33ff'];
+  const mat=new THREE.LineBasicMaterial({color:new THREE.Color(colors[Math.floor(Math.random()*4)]),
+    transparent:true,opacity:1,blending:THREE.AdditiveBlending});
+  const line=new THREE.Line(geo,mat);
+  scene.add(line);
+  shooters.push({line,dir:d.normalize(),life:1,spd:2+Math.random()*3});
+}
+setInterval(()=>{if(Math.random()<.4)spawn();},1500);
 
+// ── Hover / tooltip ────────────────────────────────────────────────────────
+window.addEventListener('mousemove',e=>{
+  mouse.x=(e.clientX/innerWidth)*2-1;
+  mouse.y=-(e.clientY/innerHeight)*2+1;
+  tooltip.style.left=Math.min(e.clientX+18,innerWidth-260)+'px';
+  tooltip.style.top=Math.max(e.clientY-40,60)+'px';
+});
+
+// ── Animate ────────────────────────────────────────────────────────────────
+const clock=new THREE.Clock(); let t=0;
 function animate(){
   requestAnimationFrame(animate);
   const dt=clock.getDelta(); t+=dt;
 
-  // Background
-  bgUni.u_time.value=t;
-  bgRenderer.render(bgScene,bgCam);
-  renderer.autoClear=false;
-  renderer.clearDepth();
+  // Core
+  core.rotation.y+=.005; core.rotation.x+=.002;
+  core.material.uniforms.t.value=t;
+  core.material.uniforms.cameraPosition.value.copy(camera.position);
+  sun.intensity=3+Math.sin(t*1.8)*1.2;
 
-  // Core knot pulse
-  coreKnot.rotation.y+=0.005;
-  coreKnot.rotation.x+=0.003;
-  coreKnot.material.uniforms.u_time.value=t;
-  coreKnot.material.uniforms.cameraPosition.value.copy(camera.position);
-  const pulse=1+Math.sin(t*3)*0.15;
-  coreKnot.scale.setScalar(pulse);
-  ptLight.intensity=3+Math.sin(t*2)*1.5;
-
-  // Node activations from live data
-  const layerActs=state.neural?.layers||[0.3,0.3,0.3,0.3,0.3,0.3];
-  nodeMeshes.forEach(({mesh,li,ni})=>{
-    const act=layerActs[li%layerActs.length]||0.3;
-    mesh.material.uniforms.u_time.value=t;
-    mesh.material.uniforms.u_act.value=act*(0.8+0.2*Math.sin(t*2+li+ni*0.5));
-    mesh.material.uniforms.cameraPosition.value.copy(camera.position);
-    // Subtle position oscillation
-    mesh.position.y=mesh.userData.baseY=(mesh.userData.baseY||mesh.position.y);
-    mesh.position.y+=Math.sin(t*1.5+li*2+ni*0.7)*0.01;
-    mesh.scale.setScalar(0.8+act*0.4);
+  // Nodes gentle float
+  nodeMeshes.forEach(({mesh,node})=>{
+    mesh.position.y=mesh.userData.pos.y+Math.sin(t*.5+mesh.userData.pos.x*.1)*.8;
+    mesh.rotation.y+=.008;
   });
 
-  // Edge opacity from activations
-  edgeMeshes.forEach(({mat,li})=>{
-    const act=layerActs[li%layerActs.length]||0.3;
-    mat.opacity=0.04+act*0.12;
-    mat.needsUpdate=true;
-  });
+  // Hover detection
+  raycaster.setFromCamera(mouse,camera);
+  const meshOnly=nodeMeshes.map(n=>n.mesh);
+  const hits=raycaster.intersectObjects(meshOnly);
+  if(hits.length){
+    const m=hits[0].object;
+    const nd=m.userData.node;
+    if(nd){
+      document.getElementById('tt-name').textContent=nd.id;
+      document.getElementById('tt-type').textContent=nd.type;
+      const linked=graphEdges.filter(e=>e.from===nd.id||e.to===nd.id)
+        .map(e=>e.from===nd.id?e.to:e.from).slice(0,6).join('  ·  ');
+      document.getElementById('tt-links').textContent=linked||'no links';
+      tooltip.style.display='block';
+      document.body.style.cursor='pointer';
+      m.scale.lerp(new THREE.Vector3(1.4,1.4,1.4),.15);
+      controls.autoRotate=false;
+    }
+  } else {
+    tooltip.style.display='none';
+    document.body.style.cursor='default';
+    nodeMeshes.forEach(({mesh})=>mesh.scale.lerp(new THREE.Vector3(1,1,1),.08));
+    controls.autoRotate=true;
+  }
 
-  // Data flow particles
-  const fp=flowGeo.attributes.position.array;
-  const fc=flowGeo.attributes.color.array;
-  flowData.forEach((f,i)=>{
-    f.t=(f.t+f.spd)%1;
-    const from=nodePositions[f.li]?.[f.ni]||new THREE.Vector3();
-    const to  =nodePositions[f.li+1]?.[f.nj]||new THREE.Vector3();
-    fp[i*3]  =from.x+(to.x-from.x)*f.t;
-    fp[i*3+1]=from.y+(to.y-from.y)*f.t;
-    fp[i*3+2]=from.z+(to.z-from.z)*f.t;
-    const c=new THREE.Color(LAYER_COLS[f.li%LAYER_COLS.length]);
-    const act=layerActs[f.li%layerActs.length]||0.3;
-    fc[i*3]=c.r*act; fc[i*3+1]=c.g*act; fc[i*3+2]=c.b*act;
-  });
-  flowGeo.attributes.position.needsUpdate=true;
-  flowGeo.attributes.color.needsUpdate=true;
+  // Shooting stars
+  for(let i=shooters.length-1;i>=0;i--){
+    const s=shooters[i]; s.life-=dt*.6;
+    s.line.material.opacity=Math.max(0,s.life);
+    const pp=s.line.geometry.attributes.position.array;
+    for(let k=0;k<6;k+=3){pp[k]+=s.dir.x*s.spd;pp[k+1]+=s.dir.y*s.spd;pp[k+2]+=s.dir.z*s.spd;}
+    s.line.geometry.attributes.position.needsUpdate=true;
+    if(s.life<=0){scene.remove(s.line);shooters.splice(i,1);}
+  }
 
   controls.update();
   composer.render();
@@ -367,8 +356,6 @@ animate();
 window.addEventListener('resize',()=>{
   camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
-  bgRenderer.setSize(innerWidth,innerHeight);
-  bgUni.u_res.value.set(innerWidth,innerHeight);
 });
 </script>
 </body>

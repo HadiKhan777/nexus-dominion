@@ -87,6 +87,40 @@ class NexusWSServer:
         }
 
 
+
+def get_obsidian_graph():
+    """Parse ~/claude-wiki into nodes + edges for the 3D visualization."""
+    import re
+    from pathlib import Path
+    WIKI = Path.home() / 'claude-wiki' / 'wiki'
+    TYPE_COLORS = {
+        'project': '#c8ff00', 'entity/person': '#ff33aa',
+        'entity/institution': '#ff8800', 'technology': '#00ccff',
+        'concept': '#aa33ff', 'certification': '#ffcc00',
+        'session': '#33ff88', 'chat-history': '#00ff99',
+        'agent-log': '#ff6600', 'meta': '#666666',
+    }
+    nodes, edges, seen = [], [], set()
+    try:
+        for md in WIKI.rglob('*.md'):
+            name = md.stem
+            if name in ('hot','index','log','overview') or name.startswith('_'):
+                continue
+            text = md.read_text(errors='ignore')[:3000]
+            m    = re.search(r'^type:\s*(.+)$', text, re.MULTILINE)
+            ntype = m.group(1).strip() if m else 'other'
+            color = TYPE_COLORS.get(ntype, '#444444')
+            if name not in seen:
+                nodes.append({'id': name, 'type': ntype, 'color': color})
+                seen.add(name)
+            for link in re.findall(r'\[\[([^\]|#]+)', text):
+                link = link.strip()
+                if link and link != name:
+                    edges.append({'from': name, 'to': link})
+    except Exception:
+        pass
+    return {'nodes': nodes[:120], 'edges': edges[:500]}
+
 def start_http(port=8766):
     """Serve the 3D visualization HTML over HTTP."""
     web_dir = Path(__file__).parent
@@ -94,6 +128,18 @@ def start_http(port=8766):
         def __init__(self, *a, **kw):
             super().__init__(*a, directory=str(web_dir), **kw)
         def log_message(self, *a): pass
+        def do_GET(self):
+            if self.path == '/api/graph':
+                import json as _j
+                data = _j.dumps(get_obsidian_graph()).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Content-Length', len(data))
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                super().do_GET()
 
     class ReuseTCPServer(socketserver.TCPServer):
         allow_reuse_address = True
