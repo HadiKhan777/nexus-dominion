@@ -461,16 +461,16 @@ class NvidiaNIMProvider(BaseProvider):
 
 class CerebrasProvider(BaseProvider):
     """Cerebras — fastest inference on the planet (CS-3 wafer chips).
-    Free tier at cloud.cerebras.ai. Llama 3.3-70B at 2000+ tokens/sec."""
+    Free tier at cloud.cerebras.ai. gpt-oss-120b at 2000+ tokens/sec."""
     name = 'Cerebras'
 
     def __init__(self, cfg):
         self.api_key = cfg.get('api_key', '')
-        self.model   = cfg.get('model', 'llama-3.3-70b')
+        self.model   = cfg.get('model', 'gpt-oss-120b')
         self.base    = 'https://api.cerebras.ai/v1'
 
     def available(self):
-        return bool(self.api_key and len(self.api_key) > 10)
+        return bool(self.api_key and (self.api_key.startswith('csk-') or len(self.api_key) > 10))
 
     def stream(self, prompt, system='', on_token=None):
         headers = {'Authorization': f'Bearer {self.api_key}',
@@ -616,36 +616,42 @@ class MistralProvider(BaseProvider):
 
 
 class HuggingFaceProvider(BaseProvider):
-    """Hugging Face Serverless Inference — free, global, no restrictions.
-    Free tier at huggingface.co/settings/tokens.
-    Many open models available."""
+    """Hugging Face Router — OpenAI-compatible, free, global.
+    Token at huggingface.co/settings/tokens (starts with hf_).
+    Uses router.huggingface.co/v1 — supports Kimi K2, Llama, and more."""
     name = 'HuggingFace'
 
     def __init__(self, cfg):
         self.api_key = cfg.get('api_key', '')
-        self.model   = cfg.get('model', 'mistralai/Mistral-7B-Instruct-v0.3')
-        self.base    = 'https://api-inference.huggingface.co/models'
+        self.model   = cfg.get('model', 'moonshotai/Kimi-K2-Instruct-0905')
+        self.base    = cfg.get('base', 'https://router.huggingface.co/v1')
 
     def available(self):
         return bool(self.api_key and self.api_key.startswith('hf_'))
 
     def stream(self, prompt, system='', on_token=None):
-        # HF uses a different format — not OpenAI compatible for all models
-        full_prompt = f"{system}\n\nUser: {prompt}\nAssistant:" if system else f"User: {prompt}\nAssistant:"
-        headers = {'Authorization': f'Bearer {self.api_key}'}
+        # router.huggingface.co is OpenAI-compatible
+        headers = {'Authorization': f'Bearer {self.api_key}',
+                   'Content-Type': 'application/json'}
         payload = {
-            'inputs': full_prompt,
-            'parameters': {'max_new_tokens': 512, 'temperature': 0.7, 'return_full_text': False}
+            'model': self.model, 'stream': True,
+            'messages': [
+                {'role': 'system', 'content': system},
+                {'role': 'user',   'content': prompt},
+            ]
         }
         try:
-            r = requests.post(f'{self.base}/{self.model}',
-                              headers=headers, json=payload, timeout=60)
-            if r.status_code == 200:
-                result = r.json()
-                text = result[0].get('generated_text', '') if isinstance(result, list) else result.get('generated_text', '')
-                # Simulate streaming word by word
-                for word in text.split():
-                    if on_token: on_token(word + ' ')
+            with requests.post(f'{self.base}/chat/completions',
+                               headers=headers, json=payload,
+                               stream=True, timeout=60) as r:
+                for line in r.iter_lines():
+                    if not line or b'[DONE]' in line: continue
+                    raw = line.decode().removeprefix('data: ')
+                    try:
+                        delta = json.loads(raw)['choices'][0]['delta']
+                        tok = delta.get('content', '')
+                        if tok and on_token: on_token(tok)
+                    except Exception: pass
         except Exception as e:
             if on_token: on_token(f'\n[HuggingFace error: {e}]')
 
