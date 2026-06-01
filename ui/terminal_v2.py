@@ -284,7 +284,9 @@ class NexusTerminalV2:
         # Header with gradient
         streaming = self.ai_stream
         hdr = gradient('◈ AI BRAIN',200,255,0,0,255,180)
-        mode = (rgb(200,255,0)+SPIN[self.spin_idx]+' STREAMING'+rst()) if streaming else (dim()+'● READY'+rst())
+        mode_txt = (SPIN[self.spin_idx]+' STREAMING ') if streaming else ('● READY       ')
+        mode_col = rgb(200,255,0) if streaming else dim()
+        mode     = mode_col + mode_txt + rst()
         self.w(mv(row,col), hdr, dim()+'  '+rst(), mode)
 
         # Animated border top
@@ -314,16 +316,21 @@ class NexusTerminalV2:
         display = lines[-avail:]
         for i, (pre, txt) in enumerate(display):
             self.w(mv(row+2+i, col), ' '*(w-1))
-            self.w(mv(row+2+i, col), pre, txt)
+            pre_w = vlen(strip(pre))
+            max_c = max(1, w - pre_w - 1)
+            txt_c = txt[:max_c + (len(txt) - len(strip(txt)))]  # keep ANSI, clip visible
+            self.w(mv(row+2+i, col), pre, txt_c)
         for i in range(len(display), avail):
             self.w(mv(row+2+i, col), ' '*(w-1))
 
         # Divider
         self.w(mv(row+h-2, col), rgb(0,40,0)+'─'*(w-1)+rst())
         # Input line
-        caret = rgb(200,255,0)+'█'+rst() if not streaming else blink()+rgb(0,200,100)+'▮'+rst()
-        disp  = self.input_buf[-(w-8):]
-        self.w(mv(row+h-1,col), rgb(0,100,50)+bold()+'▸ '+rst(), disp, caret, ' '*(max(0,w-len(disp)-5)))
+        caret  = rgb(200,255,0)+'█'+rst() if not streaming else blink()+rgb(0,200,100)+'▮'+rst()
+        max_d  = max(1, w - 5)
+        disp   = self.input_buf[-max_d:]
+        trail  = ' ' * max(0, max_d - len(disp))
+        self.w(mv(row+h-1,col), rgb(0,100,50)+bold()+'▸ '+rst(), disp, caret, trail)
 
     def _panel_neural(self, row, col, w, h):
         n = self.neural
@@ -425,7 +432,10 @@ class NexusTerminalV2:
             alive  = info.get('alive', True)
             dot = rgb(50,255,100)+'●'+rst() if alive else dim()+'○'+rst()
             tc  = rgb(50,255,100) if threat=='SAFE' else rgb(255,180,0) if 'TOKEN' in threat else rgb(255,50,50)
-            self.w(mv(row+2+i,col), dot,' ',dim()+ip[:15].ljust(15)+rst(),' ',dim()+name.ljust(14)+rst(),' ',tc+threat[:10]+rst())
+            row_txt = (dot+' '+dim()+ip[:14].ljust(14)+rst()+
+                        ' '+dim()+name[:10].ljust(10)+rst()+'  '+tc+threat[:8]+rst())
+            if vlen(strip(row_txt)) < w:
+                self.w(mv(row+2+i,col), row_txt)
 
     def _panel_github(self, row, col, w, h):
         events, stars, last = self.github.get_feed()
