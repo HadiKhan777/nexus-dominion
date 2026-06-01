@@ -176,13 +176,13 @@ class Agent:
 
 # Provider assignment per agent — best available provider for each specialty
 AGENT_PROVIDERS = {
-    # GPU-accelerated preferred when available (NVIDIA NIM, Cerebras, Together, SambaNova)
-    # Falls back to Groq (fast), then OpenRouter (free models), then Ollama (local)
-    'CODER':     ['cerebras',    'nvidia',   'groq_qwen3',  'groq_llama4', 'groq',     'or_gpt20b',  'ollama'],
-    'TRAINER':   ['ollama',      'groq',     'cerebras'],
-    'GUARDIAN':  ['nvidia',      'cerebras', 'groq_120b',   'groq',        'or_gemma31b', 'ollama'],
-    'ORACLE':    ['nvidia',      'together', 'sambanova',   'groq_120b',   'groq',     'or_gemma31b','ollama'],
-    'ARCHITECT': ['nvidia',      'cerebras', 'groq_llama4', 'groq_120b',   'groq',     'ollama'],
+    # Turkey-compatible free providers first (no US export restrictions)
+    # Mistral (French) · Cerebras · Together · SambaNova · Groq · OpenRouter · Ollama
+    'CODER':     ['cerebras', 'mistral',   'groq_qwen3',  'groq_llama4', 'groq',     'huggingface', 'ollama'],
+    'TRAINER':   ['ollama',   'groq',      'mistral',     'cerebras'],
+    'GUARDIAN':  ['cerebras', 'mistral',   'groq_120b',   'groq',        'sambanova', 'ollama'],
+    'ORACLE':    ['mistral',  'together',  'sambanova',   'groq_120b',   'groq',     'or_gemma31b', 'ollama'],
+    'ARCHITECT': ['cerebras', 'mistral',   'groq_llama4', 'groq_120b',   'groq',     'ollama'],
 }
 
 

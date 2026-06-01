@@ -24,6 +24,8 @@ DEFAULT_CONFIG = {
     "cerebras":    {"api_key": "", "model": "llama-3.3-70b"},
     "together":    {"api_key": "", "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo"},
     "sambanova":   {"api_key": "", "model": "Meta-Llama-3.3-70B-Instruct"},
+    "mistral":     {"api_key": "", "model": "mistral-small-latest"},
+    "huggingface": {"api_key": "", "model": "mistralai/Mistral-7B-Instruct-v0.3"},
 }
 
 
@@ -571,6 +573,82 @@ class SambanovaProvider(BaseProvider):
         except Exception as e:
             if on_token: on_token(f'\n[SambaNova error: {e}]')
 
+
+
+class MistralProvider(BaseProvider):
+    """Mistral AI — French company, no US export restrictions, works in Turkey.
+    Free tier at console.mistral.ai — mistral-small is free forever.
+    Key starts with anything (no prefix pattern)."""
+    name = 'Mistral'
+
+    def __init__(self, cfg):
+        self.api_key = cfg.get('api_key', '')
+        self.model   = cfg.get('model', 'mistral-small-latest')
+        self.base    = 'https://api.mistral.ai/v1'
+
+    def available(self):
+        return bool(self.api_key and len(self.api_key) > 10)
+
+    def stream(self, prompt, system='', on_token=None):
+        headers = {'Authorization': f'Bearer {self.api_key}',
+                   'Content-Type': 'application/json'}
+        payload = {
+            'model': self.model, 'stream': True,
+            'messages': [
+                {'role': 'system', 'content': system},
+                {'role': 'user',   'content': prompt},
+            ]
+        }
+        try:
+            with requests.post(f'{self.base}/chat/completions',
+                               headers=headers, json=payload,
+                               stream=True, timeout=60) as r:
+                for line in r.iter_lines():
+                    if not line or b'[DONE]' in line: continue
+                    raw = line.decode().removeprefix('data: ')
+                    try:
+                        delta = json.loads(raw)['choices'][0]['delta']
+                        tok = delta.get('content', '')
+                        if tok and on_token: on_token(tok)
+                    except Exception: pass
+        except Exception as e:
+            if on_token: on_token(f'\n[Mistral error: {e}]')
+
+
+class HuggingFaceProvider(BaseProvider):
+    """Hugging Face Serverless Inference — free, global, no restrictions.
+    Free tier at huggingface.co/settings/tokens.
+    Many open models available."""
+    name = 'HuggingFace'
+
+    def __init__(self, cfg):
+        self.api_key = cfg.get('api_key', '')
+        self.model   = cfg.get('model', 'mistralai/Mistral-7B-Instruct-v0.3')
+        self.base    = 'https://api-inference.huggingface.co/models'
+
+    def available(self):
+        return bool(self.api_key and self.api_key.startswith('hf_'))
+
+    def stream(self, prompt, system='', on_token=None):
+        # HF uses a different format — not OpenAI compatible for all models
+        full_prompt = f"{system}\n\nUser: {prompt}\nAssistant:" if system else f"User: {prompt}\nAssistant:"
+        headers = {'Authorization': f'Bearer {self.api_key}'}
+        payload = {
+            'inputs': full_prompt,
+            'parameters': {'max_new_tokens': 512, 'temperature': 0.7, 'return_full_text': False}
+        }
+        try:
+            r = requests.post(f'{self.base}/{self.model}',
+                              headers=headers, json=payload, timeout=60)
+            if r.status_code == 200:
+                result = r.json()
+                text = result[0].get('generated_text', '') if isinstance(result, list) else result.get('generated_text', '')
+                # Simulate streaming word by word
+                for word in text.split():
+                    if on_token: on_token(word + ' ')
+        except Exception as e:
+            if on_token: on_token(f'\n[HuggingFace error: {e}]')
+
 def build_providers():
     """Load config and instantiate all providers. Returns dict name→provider."""
     cfg = load_config()
@@ -596,6 +674,8 @@ def build_providers():
         'cerebras':        CerebrasProvider(cfg.get('cerebras', {})),
         'together':        TogetherProvider(cfg.get('together', {})),
         'sambanova':       SambanovaProvider(cfg.get('sambanova', {})),
+        'mistral':         MistralProvider(cfg.get('mistral', {})),
+        'huggingface':     HuggingFaceProvider(cfg.get('huggingface', {})),
     }
 
 
