@@ -1,6 +1,6 @@
 # NEXUS — Personal Intelligence System
 
-A living AI operating system that runs entirely on your local machine.
+A personal AI operating system that runs entirely on your local machine. No cloud required. No subscriptions. Everything from scratch.
 
 ```
 ███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗
@@ -11,89 +11,99 @@ A living AI operating system that runs entirely on your local machine.
 ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 ```
 
-## What it is
+## What it does
 
-NEXUS is not a chatbot. It is a multi-panel terminal cockpit that:
+NEXUS is a full-screen terminal cockpit that runs 10 systems simultaneously:
 
-- **Thinks** — multi-agent AI via Ollama with full RAG over all your code and documents
-- **Trains** — runs a live neural network in the background, visualizing every weight update
-- **Sees** — monitors your local network, tracks devices, flags anomalies
-- **Codes** — generates and executes Python autonomously in a sandboxed environment
-- **Remembers** — TF-IDF vector search over your entire codebase, CV, and documents
-- **Visualizes** — opens a live 3D brain visualization in the browser via WebSocket
+- **Multi-provider AI brain** — routes queries to the best available model (Groq llama-3.3-70b, Groq gpt-oss-120b, Gemini, OpenRouter, or local Ollama). Falls back gracefully when providers are unavailable.
+- **5-agent swarm** — CODER, TRAINER, GUARDIAN, ORACLE, ARCHITECT running in parallel threads. Each agent uses the model best suited to its specialty. `/consensus` fires all 5 at once and merges their answers.
+- **RAG over 9,800+ local documents** — TF-IDF vector search over all your code, READMEs, notes, and past conversations. No external vector DB.
+- **Persistent memory** — every conversation stored to disk, learned facts injected into every future prompt. Survives restarts.
+- **Obsidian knowledge graph** — all conversations auto-logged as dated nodes in your knowledge base. Past chats become future context.
+- **Live neural training** — runs a neural network in the background using NumPy only. Loss, accuracy, and per-layer activations visible in real time.
+- **Network security monitor** — scans local subnet, tracks devices, identifies anomalies.
+- **GitHub live feed** — real-time repo activity.
+- **File watcher** — monitors your repos for changes as you code.
+- **3D knowledge universe** — browser-based Three.js visualization showing your Obsidian graph as a live force-directed 3D network. Nodes colored by type, edges from wikilinks, updates every 30 seconds.
 
 ## Architecture
 
 ```
 nexus/
-├── nexus.py                # Entry point — boots all systems
+├── nexus_v2.py              # Entry point — boots all 10 systems
 ├── brain/
-│   ├── core.py             # Ollama client, multi-agent coordinator, code executor
-│   └── rag.py              # TF-IDF RAG engine — indexes all local documents
+│   ├── core.py              # AI brain: RAG + multi-provider + code executor
+│   ├── providers.py         # Unified LLM client: Groq, Gemini, OpenRouter, DeepSeek, Kimi, Ollama
+│   ├── swarm.py             # 5-agent swarm + consensus mode
+│   ├── rag.py               # TF-IDF RAG engine — zero external dependencies
+│   ├── memory.py            # Persistent memory (JSON, atomic writes)
+│   ├── obsidian_writer.py   # Agents write findings to Obsidian knowledge graph
+│   ├── obsidian_chat_log.py # Auto-log all conversations as Obsidian nodes
+│   ├── github_feed.py       # Live GitHub activity feed
+│   ├── self_modify.py       # NEXUS reads and improves its own source code
+│   ├── voice.py             # TTS via espeak
+│   ├── vision.py            # Camera feed with face detection (OpenCV)
+│   └── websearch.py         # Web search via DuckDuckGo (no API key)
 ├── workers/
-│   ├── neural_worker.py    # Runs neuralkit training in background, streams state
-│   └── security_worker.py  # Network scanner, device tracker
+│   ├── neural_worker.py     # Live neural network training (NumPy only)
+│   ├── security_worker.py   # Network scanner and device tracker
+│   └── file_watcher.py      # Real-time file change monitor across repos
 ├── ui/
-│   └── terminal.py         # Full-screen ANSI cockpit (raw escape codes, 15fps)
+│   └── terminal_v2.py       # Full-screen ANSI cockpit at 20fps
 └── web/
-    ├── server.py            # WebSocket bridge + HTTP file server
-    └── brain_3d.html        # Three.js 3D neural network visualization
+    ├── server.py             # WebSocket bridge + HTTP + /api/graph endpoint
+    └── brain_3d.html         # Three.js knowledge universe (Obsidian graph in 3D)
 ```
 
-## Requirements
+## Setup
 
 ```bash
-pip3 install numpy requests websockets
-# For AI: install Ollama — https://ollama.ai
-ollama pull llama3.2:1b
+# Install dependencies
+pip3 install numpy requests websockets evdev opencv-python
+
+# Optional: install Ollama for local inference
+# https://ollama.ai
+
+# Run
+cd nexus
+python3 nexus_v2.py
 ```
 
-## Run
+## API Keys (all free)
 
-```bash
-python3 nexus.py
+Add your keys to `~/.nexus/providers.json`:
+
+```json
+{
+  "groq":       {"api_key": "gsk_...",   "model": "llama-3.3-70b-versatile"},
+  "gemini":     {"api_key": "AIza...",   "model": "gemini-1.5-flash"},
+  "openrouter": {"api_key": "sk-or-...", "model": "meta-llama/llama-3.1-8b-instruct:free"}
+}
 ```
 
-NEXUS opens a full-screen terminal cockpit. The 3D brain visualization opens automatically in your browser.
+- **Groq**: [console.groq.com](https://console.groq.com) — free, no credit card
+- **Gemini**: [aistudio.google.com](https://aistudio.google.com) — free tier
+- **OpenRouter**: [openrouter.ai](https://openrouter.ai) — 25+ free models
 
-## Terminal Commands
+## Commands
 
 | Command | Description |
 |---------|-------------|
-| `<any text>` | Ask the AI anything — uses RAG context |
-| `/train [dataset]` | Start neural training (spiral/moons/circles/xor) |
-| `/scan` | Rescan local network |
-| `/code <desc>` | Generate and execute Python code |
-| `/3d` | Open 3D visualization |
-| `/clear` | Clear chat history |
-| `/quit` | Exit NEXUS |
+| `<anything>` | Ask the AI — uses RAG over your local files |
+| `/consensus <question>` | All 5 agents answer in parallel, merged into one |
+| `/swarm <task>` | Broadcast task to all agents simultaneously |
+| `/agent CODER <task>` | Route to a specific agent |
+| `/remember <fact>` | Commit to long-term memory |
+| `/recall` | Show learned facts + session stats |
+| `/search <query>` | Live web search |
+| `/train moons` | Switch neural training dataset |
+| `/evolve` | NEXUS reads its own code and suggests improvements |
+| `/camera` | Toggle webcam (face detection, ASCII render) |
+| `/3d` | Open knowledge universe in browser |
+| `↑` / `↓` | Scroll chat history |
 
-## Panels
+## Stack
 
-```
-┌──────────────────────────────┬────────────────────────────────────┐
-│  ◈ AI BRAIN                  │  ◈ NEURAL ACTIVITY                  │
-│  Multi-agent AI with RAG     │  Live training visualization         │
-│  Streams token by token      │  Loss / accuracy / layer activations │
-│                              ├────────────────────────────────────┤
-│  ▸ _                         │  ◈ SECURITY MONITOR                 │
-│                              │  Network devices · Threat assessment │
-│                              ├────────────────────────────────────┤
-│                              │  ◈ TASKS                            │
-│                              │  Boot sequence · Live progress       │
-├──────────────────────────────┴────────────────────────────────────┤
-│  Commands: /think  /code  /train  /scan  /3d  /clear  /quit       │
-└───────────────────────────────────────────────────────────────────┘
-```
+Python · NumPy · Requests · WebSockets · OpenCV · Three.js · GLSL · WebGL · UnrealBloom
 
-## Tech Stack
-
-- **Python** — core runtime, no heavy frameworks
-- **Ollama** — local LLM inference (llama3.2:1b or any model)
-- **neuralkit** — live neural network training (from scratch, NumPy only)
-- **Raw ANSI** — terminal UI (same philosophy as the `tui` project)
-- **Three.js r160** — 3D neural visualization with UnrealBloom
-- **WebSocket** — live bridge between terminal and browser
-- **TF-IDF** — local vector search, zero external dependencies
-
-Zero cloud. Zero API keys. Runs entirely on your machine.
+Zero cloud services. Everything runs on your machine.
