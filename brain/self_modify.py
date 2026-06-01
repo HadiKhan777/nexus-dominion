@@ -47,8 +47,10 @@ class SelfModifyEngine:
         return None
 
     def apply(self, filename, old_code, new_code):
-        """Apply a modification to a source file."""
-        p = NEXUS_ROOT / filename
+        """Apply a modification — only allowed inside ~/nexus/."""
+        p = (NEXUS_ROOT / filename).resolve()
+        if not str(p).startswith(str(NEXUS_ROOT.resolve())):
+            return False, 'Refused: path escapes nexus root'
         if not p.exists():
             return False, 'File not found'
         content = p.read_text()
