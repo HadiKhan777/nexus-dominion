@@ -179,8 +179,9 @@ class NexusTerminalV2:
         self._running    = False
         self._buf        = []
         self._rlock      = threading.Lock()
-        self.rain        = None   # initialized after term size known
+        self.rain        = None
         self.rain_tick   = 0
+        self.chat_scroll = 0   # lines scrolled up (0 = at bottom)
         # Command history recall (up/down arrows)
         self.cmd_history = list(memory.command_history()) if memory else []
         self.hist_idx    = len(self.cmd_history)   # points past the end
@@ -280,56 +281,129 @@ class NexusTerminalV2:
         self._panel_filewatcher( 3+q*3+1,   right_x, right, q)
         self._panel_tasks(       3+q*4+1,   right_x, right, max(3, body-q*4-1))
 
+    def _fmt_message(self, text, width, col_fn, cont_color):
+        """
+        Paragraph-aware formatter. Handles:
+        - Blank lines between paragraphs (visual gap)
+        - Fenced code blocks (``` ... ```) with different color
+        - Proper word wrapping per paragraph
+        Returns list of (prefix_char, styled_line) tuples.
+        """
+        out      = []
+        in_code  = False
+        paras    = text.split('\n')
+        tw       = max(8, width - 4)
+
+        for raw_line in paras:
+            stripped = raw_line.strip()
+
+            # Code fence toggle
+            if stripped.startswith('```'):
+                in_code = not in_code
+                if in_code:
+                    lang = stripped[3:].strip() or 'code'
+                    out.append(('', rgb(100,100,100)+'── '+lang+' ─'*(max(0,tw-5-len(lang)))+''+rst()))
+                else:
+                    out.append(('', rgb(100,100,100)+'─'*tw+rst()))
+                continue
+
+            if in_code:
+                # Code lines: monospace dim cyan, no wrap
+                out.append(('  ', rgb(80,200,200)+raw_line[:tw]+rst()))
+                continue
+
+            if stripped == '':
+                # Blank line = paragraph separator
+                out.append(('', ''))
+                continue
+
+            # Normal text: wrap to width
+            chunks = textwrap.wrap(stripped, tw) or ['']
+            for i, chunk in enumerate(chunks):
+                out.append(('  ' if i > 0 else None, col_fn(chunk)))
+
+        return out
+
     def _panel_chat(self, row, col, w, h):
-        # Header with gradient
         streaming = self.ai_stream
-        hdr = gradient('◈ AI BRAIN',200,255,0,0,255,180)
+        hdr      = gradient('◈ AI BRAIN',200,255,0,0,255,180)
         mode_txt = (SPIN[self.spin_idx]+' STREAMING ') if streaming else ('● READY       ')
         mode_col = rgb(200,255,0) if streaming else dim()
         mode     = mode_col + mode_txt + rst()
-        self.w(mv(row,col), hdr, dim()+'  '+rst(), mode)
 
-        # Animated border top
+        # Scroll indicator
+        total_scrollable = max(0, self.chat_scroll)
+        scroll_info = (dim()+f' ↑{total_scrollable}ln '+rst()) if total_scrollable > 0 else ''
+        self.w(mv(row,col), hdr, dim()+'  '+rst(), mode, scroll_info)
+
         border_char = GLITCH[self.spin_idx % len(GLITCH)] if streaming else '─'
         self.w(mv(row+1,col), rgb(0,60,0)+border_char*(w-1)+rst())
 
-        # Messages
+        # Build all lines
         avail = h - 4
         lines = []
-        for role, text in self.messages[-14:]:
+
+        for role, text in self.messages:
             if role == 'user':
-                prefix = rgb(200,255,0)+bold()+'▸ '+rst()
-                col_fn = lambda s: rgb(220,255,100)+s+rst()
+                pfx    = rgb(200,255,0)+bold()+'▸ '+rst()
+                cfn    = lambda s: rgb(220,255,100)+s+rst()
+                ccol   = rgb(220,255,100)
             else:
-                prefix = rgb(0,220,180)+bold()+'⬡ '+rst()
-                col_fn = lambda s: rgb(180,220,200)+s+rst()
-            for i, chunk in enumerate(textwrap.wrap(text, w-4)[:8]):
-                lines.append((prefix if i==0 else '  ', col_fn(chunk)))
+                pfx    = rgb(0,220,180)+bold()+'⬡ '+rst()
+                cfn    = lambda s: rgb(180,220,200)+s+rst()
+                ccol   = rgb(180,220,200)
 
-        # Streaming response
+            parts = self._fmt_message(text, w, cfn, ccol)
+            for idx, (cont, styled) in enumerate(parts):
+                actual_pre = pfx if idx == 0 else (cont if cont is not None else '  ')
+                lines.append((actual_pre, styled))
+            lines.append(('', ''))  # gap between messages
+
+        # Streaming
         if self.cur_resp:
-            lines.append(('', ''))
-            for i, chunk in enumerate(textwrap.wrap(self.cur_resp, w-4)[-6:]):
-                char = GLITCH[self.spin_idx % len(GLITCH)] if i == 0 else ' '
-                lines.append((rgb(0,200,160)+char+' '+rst(), rgb(180,230,200)+chunk+rst()))
+            spin_char = rgb(0,200,160)+GLITCH[self.spin_idx % len(GLITCH)]+' '+rst()
+            for idx, chunk in enumerate(textwrap.wrap(self.cur_resp, max(8,w-4)) or ['']):
+                pre = spin_char if idx == 0 else '  '
+                lines.append((pre, rgb(180,230,200)+chunk+rst()))
 
-        display = lines[-avail:]
+        # Apply scroll: 0 = bottom, positive = scrolled up
+        total = len(lines)
+        if self.chat_scroll > 0:
+            end   = max(avail, total - self.chat_scroll)
+            start = max(0, end - avail)
+            display = lines[start:end]
+        else:
+            display = lines[-avail:]
+
+        # Render
         for i, (pre, txt) in enumerate(display):
             self.w(mv(row+2+i, col), ' '*(w-1))
+            if pre == '' and txt == '':
+                continue  # blank gap line — already cleared
             pre_w = vlen(strip(pre))
-            max_c = max(1, w - pre_w - 1)
-            txt_c = txt[:max_c + (len(txt) - len(strip(txt)))]  # keep ANSI, clip visible
-            self.w(mv(row+2+i, col), pre, txt_c)
+            max_c = max(1, w - pre_w - 2)
+            vis   = strip(txt)
+            if len(vis) > max_c:
+                ansi_extra = len(txt) - len(vis)
+                txt = txt[:max_c + ansi_extra]
+            self.w(mv(row+2+i, col), pre, txt)
+
         for i in range(len(display), avail):
             self.w(mv(row+2+i, col), ' '*(w-1))
 
-        # Divider
+        # Scroll arrows on right edge
+        if total > avail:
+            self.w(mv(row+2,    col+w-2), dim()+'↑'+rst())
+            self.w(mv(row+h-3,  col+w-2), dim()+'↓'+rst())
+            pct  = min(avail-1, int((1 - self.chat_scroll/max(1,total-avail)) * (avail-2)))
+            self.w(mv(row+2+pct, col+w-2), rgb(200,255,0)+'█'+rst())
+
+        # Divider + input
         self.w(mv(row+h-2, col), rgb(0,40,0)+'─'*(w-1)+rst())
-        # Input line
-        caret  = rgb(200,255,0)+'█'+rst() if not streaming else blink()+rgb(0,200,100)+'▮'+rst()
-        max_d  = max(1, w - 5)
-        disp   = self.input_buf[-max_d:]
-        trail  = ' ' * max(0, max_d - len(disp))
+        caret = rgb(200,255,0)+'█'+rst() if not streaming else blink()+rgb(0,200,100)+'▮'+rst()
+        max_d = max(1, w - 5)
+        disp  = self.input_buf[-max_d:]
+        trail = ' ' * max(0, max_d - len(disp))
         self.w(mv(row+h-1,col), rgb(0,100,50)+bold()+'▸ '+rst(), disp, caret, trail)
 
     def _panel_neural(self, row, col, w, h):
@@ -511,18 +585,29 @@ class NexusTerminalV2:
         esc = getattr(self, '_esc', '')
         if esc:
             esc += key
-            if esc == '\x1b[':
+            # Still building sequence
+            if esc in ('\x1b[', '\x1b[<', '\x1b[5', '\x1b[6'):
                 self._esc = esc
                 return True
-            if esc.startswith('\x1b['):
-                self._esc = ''
-                if esc == '\x1b[A':   self._history_prev()   # up
-                elif esc == '\x1b[B': self._history_next()   # down
-                # left/right ignored for now
-                return True
             self._esc = ''
+            # Arrow keys
+            if   esc == '\x1b[A': self._history_prev()       # up arrow
+            elif esc == '\x1b[B': self._history_next()       # down arrow
+            # Page Up / Page Down
+            elif esc == '\x1b[5~': self.chat_scroll += 8     # Page Up
+            elif esc == '\x1b[6~': self.chat_scroll = max(0, self.chat_scroll - 8)  # Page Down
+            # Ctrl+Home / Ctrl+End
+            elif esc == '\x1b[1~': self.chat_scroll = 9999   # scroll to top
+            elif esc == '\x1b[4~': self.chat_scroll = 0      # scroll to bottom (End)
+            # Mouse wheel (xterm: \x1b[<64;..M = up, 65 = down) — partial match ok
+            elif 'M' in esc and '<64;' in esc: self.chat_scroll += 3
+            elif 'M' in esc and '<65;' in esc: self.chat_scroll = max(0, self.chat_scroll - 3)
             return True
         if key == '\x1b':
+            self._esc = '\x1b'
+            return True
+        # Mouse scroll wheel (xterm SGR: \x1b[<64;x;yM = wheel up, 65 = wheel down)
+        if key == '\x1b' and getattr(self, '_esc', '') == '':
             self._esc = '\x1b'
             return True
 
@@ -589,6 +674,7 @@ class NexusTerminalV2:
         if text.startswith('/'):
             self._cmd(text); return
         self.messages.append(('user', text))
+        self.chat_scroll = 0  # snap to bottom on new message
 
         def stream():
             self.ai_stream = True
